@@ -278,7 +278,7 @@
   </div>
 </div>
 
-<script>
+
  <script>
   const API_URL = 'https://gynocare-backend.onrender.com/api/v1';
   let currentUser = null;
@@ -481,54 +481,58 @@
     document.getElementById(modalId).style.display = 'none';
   }
 
-  async function login(email, password) {
-    const loginBtn = document.getElementById('btnConnexion');
-    const errorDiv = document.getElementById('loginError');
-    const successDiv = document.getElementById('loginSuccess');
+ async function login(email, password) {
+  const btn = document.getElementById('btnConnexion');
+  const errorDiv = document.getElementById('loginError');
+  
+  errorDiv.style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = 'Connexion...';
+  
+  try {
+    console.log('Tentative de connexion pour:', email);
     
-    errorDiv.style.display = 'none';
-    successDiv.style.display = 'none';
-    loginBtn.disabled = true;
-    loginBtn.innerHTML = '<span class="spinner"></span> Connexion...';
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
     
-    try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+    const data = await response.json();
+    console.log('Réponse:', data);
+    
+    if (data.success) {
+      currentUser = data.user;
+      console.log('✅ Connexion réussie!', currentUser);
       
-      const data = await response.json();
+      // Mettre à jour l'affichage
+      document.getElementById('welcomeName').textContent = `Bonjour, ${currentUser.fullName}`;
+      document.getElementById('doctorName').textContent = currentUser.fullName;
+      document.getElementById('doctorRole').innerHTML = `Gynécologie médicale · ${currentUser.role === 'admin' ? 'Administrateur' : 'Médecin'}`;
       
-      if (data.success) {
-        currentUser = data.user;
-        successDiv.textContent = '✅ Connexion réussie !';
-        successDiv.style.display = 'block';
-        
-        document.getElementById('welcomeName').textContent = `Bonjour, ${data.user.fullName}`;
-        document.getElementById('doctorName').textContent = data.user.fullName;
-        document.getElementById('doctorRole').innerHTML = `Gynécologie médicale · ${data.user.role === 'admin' ? 'Administrateur' : 'Médecin'}`;
-        
-        await loadPatients();
-        await loadAppointments();
-        await loadConsultations();
-        
-        setTimeout(() => {
-          document.getElementById('loginPage').style.display = 'none';
-          document.getElementById('dashboardApp').style.display = 'block';
-        }, 500);
-      } else {
-        errorDiv.textContent = '❌ ' + data.message;
-        errorDiv.style.display = 'block';
-      }
-    } catch (error) {
-      errorDiv.textContent = '❌ Erreur de connexion au serveur';
+      // Charger les patients
+      const patientsRes = await fetch(`${API_URL}/patients`);
+      patientsList = await patientsRes.json();
+      document.getElementById('patientsCount').textContent = `${patientsList.length} patients`;
+      
+      // Cacher la page de login et afficher le dashboard
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('dashboardApp').style.display = 'block';
+      
+      console.log('✅ Dashboard affiché');
+    } else {
+      errorDiv.textContent = '❌ ' + data.message;
       errorDiv.style.display = 'block';
-    } finally {
-      loginBtn.disabled = false;
-      loginBtn.innerHTML = 'Se connecter <i class="fas fa-arrow-right"></i>';
     }
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    errorDiv.textContent = '❌ Erreur de connexion: ' + error.message;
+    errorDiv.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Se connecter';
   }
+}
 
   // Événements
   document.getElementById('btnConnexion').addEventListener('click', () => {
@@ -581,6 +585,6 @@
     if (event.target.classList.contains('modal')) event.target.style.display = 'none';
   };
 </script>
-</script>
+
 </body>
 </html>
