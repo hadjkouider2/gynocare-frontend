@@ -435,19 +435,21 @@
     }
   }
 
-  function showPatientsModal() {
+    function showPatientsModal() {
     const modal = document.getElementById('patientsModal');
     const listDiv = document.getElementById('patientsList');
+    
+    console.log('Affichage modal patients, donnÈes:', window.patientsData);
     
     if (window.patientsData && window.patientsData.length > 0) {
       listDiv.innerHTML = window.patientsData.map(patient => `
         <div class="patient-item" onclick="viewPatientDetails(${patient.id})">
           <div class="patient-name">${patient.full_name || 'Patient'}</div>
-          <div class="patient-email">${patient.email || ''} ‚Ä¢ ${patient.phone || 'T√©l non renseign√©'}</div>
+          <div class="patient-email">${patient.email || ''} ï ${patient.phone || 'TÈl non renseignÈ'}</div>
         </div>
       `).join('');
     } else {
-      listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Aucun patient trouv√©</div>';
+      listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Aucun patient trouvÈ</div>';
     }
     modal.style.display = 'flex';
   }
@@ -481,48 +483,54 @@
     document.getElementById(modalId).style.display = 'none';
   }
 
- async function login(email, password) {
-  const btn = document.getElementById('btnConnexion');
-  const errorDiv = document.getElementById('loginError');
-  
-  errorDiv.style.display = 'none';
-  btn.disabled = true;
-  btn.innerHTML = 'Connexion...';
-  
-  try {
-    console.log('Tentative de connexion pour:', email);
+   async function login(email, password) {
+    const btn = document.getElementById('btnConnexion');
+    const errorDiv = document.getElementById('loginError');
     
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
+    errorDiv.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = 'Connexion...';
     
-    const data = await response.json();
-    console.log('R√©ponse:', data);
-    
-    if (data.success) {
-      currentUser = data.user;
-      console.log('‚úÖ Connexion r√©ussie!', currentUser);
+    try {
+      console.log('Tentative de connexion pour:', email);
       
-      // Mettre √† jour l'affichage
-      document.getElementById('welcomeName').textContent = `Bonjour, ${currentUser.fullName}`;
-      document.getElementById('doctorName').textContent = currentUser.fullName;
-      document.getElementById('doctorRole').innerHTML = `Gyn√©cologie m√©dicale ¬∑ ${currentUser.role === 'admin' ? 'Administrateur' : 'M√©decin'}`;
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
       
-      // Charger les patients
-      const patientsRes = await fetch(`${API_URL}/patients`);
-      patientsList = await patientsRes.json();
-      document.getElementById('patientsCount').textContent = `${patientsList.length} patients`;
+      const data = await response.json();
+      console.log('RÈponse:', data);
       
-      // Cacher la page de login et afficher le dashboard
-      document.getElementById('loginPage').style.display = 'none';
-      document.getElementById('dashboardApp').style.display = 'block';
-      
-      console.log('‚úÖ Dashboard affich√©');
-    } else {
-      errorDiv.textContent = '‚ùå ' + data.message;
+      if (data.success) {
+        currentUser = data.user;
+        console.log('? Connexion rÈussie!', currentUser);
+        
+        document.getElementById('welcomeName').textContent = `Bonjour, ${currentUser.fullName}`;
+        document.getElementById('doctorName').textContent = currentUser.fullName;
+        document.getElementById('doctorRole').innerHTML = `GynÈcologie mÈdicale ∑ ${currentUser.role === 'admin' ? 'Administrateur' : 'MÈdecin'}`;
+        
+        const patientsRes = await fetch(`${API_URL}/patients`);
+        window.patientsData = await patientsRes.json();
+        console.log('Patients chargÈs:', window.patientsData);
+        document.getElementById('patientsCount').textContent = `${window.patientsData.length} patients`;
+        
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('dashboardApp').style.display = 'block';
+        
+        console.log('? Dashboard affichÈ');
+      } else {
+        errorDiv.textContent = '? ' + data.message;
+        errorDiv.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('? Erreur:', error);
+      errorDiv.textContent = '? Erreur de connexion: ' + error.message;
       errorDiv.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Se connecter';
     }
   } catch (error) {
     console.error('‚ùå Erreur:', error);
