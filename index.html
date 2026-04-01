@@ -279,69 +279,159 @@
 </div>
 
 <script>
+ <script>
   const API_URL = 'https://gynocare-backend.onrender.com/api/v1';
   let currentUser = null;
-  let patientsData = [];
-  let appointmentsData = [];
 
   // Date du jour
   const today = new Date();
   document.getElementById('currentDate').textContent = today.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Fonctions API
-  async function apiCall(endpoint, options = {}) {
-    try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers: { 'Content-Type': 'application/json', ...options.headers }
-      });
-      return await response.json();
-    } catch (error) {
-      console.error('API Error:', error);
-      return null;
-    }
-  }
-
   async function loadPatients() {
-    const data = await apiCall('/patients');
-    if (data && Array.isArray(data)) {
-      patientsData = data;
-      document.getElementById('patientsCount').textContent = `${patientsData.length} patients`;
-      return patientsData;
+    try {
+      const response = await fetch(`${API_URL}/patients`);
+      const patients = await response.json();
+      if (Array.isArray(patients)) {
+        document.getElementById('patientsCount').textContent = `${patients.length} patients`;
+        window.patientsData = patients;
+        return patients;
+      }
+    } catch (error) {
+      console.error('Erreur chargement patients:', error);
     }
     document.getElementById('patientsCount').textContent = '0 patient';
     return [];
   }
 
   async function loadAppointments() {
-    const data = await apiCall('/appointments');
-    if (data && Array.isArray(data)) {
-      appointmentsData = data;
-      document.getElementById('appointmentsCount').textContent = `${appointmentsData.length} rendez-vous`;
-      return appointmentsData;
+    try {
+      const response = await fetch(`${API_URL}/appointments`);
+      const appointments = await response.json();
+      if (Array.isArray(appointments)) {
+        document.getElementById('appointmentsCount').textContent = `${appointments.length} rendez-vous`;
+        return appointments;
+      }
+    } catch (error) {
+      console.error('Erreur chargement rendez-vous:', error);
     }
     document.getElementById('appointmentsCount').textContent = '0 rendez-vous';
     return [];
   }
 
   async function loadConsultations() {
-    const consultationsList = document.getElementById('consultationsList');
-    consultationsList.innerHTML = '<div class="consultation-item"><div class="consultation-time">--:--</div><div class="consultation-details"><h4>Chargement...</h4><p>---</p></div></div>';
-    
-    const data = await apiCall('/appointments');
-    if (data && data.length > 0) {
-      const recent = data.slice(0, 5);
-      consultationsList.innerHTML = recent.map(apt => `
-        <div class="consultation-item">
-          <div class="consultation-time">${new Date(apt.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-          <div class="consultation-details">
-            <h4>${apt.patient_name || 'Patient'}</h4>
-            <p>${apt.reason || 'Consultation'}</p>
+    try {
+      const response = await fetch(`${API_URL}/appointments`);
+      const data = await response.json();
+      const consultationsList = document.getElementById('consultationsList');
+      
+      if (data && data.length > 0) {
+        const recent = data.slice(0, 5);
+        consultationsList.innerHTML = recent.map(apt => `
+          <div class="consultation-item">
+            <div class="consultation-time">${new Date(apt.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div class="consultation-details">
+              <h4>${apt.patient_name || 'Patient'}</h4>
+              <p>${apt.reason || 'Consultation'}</p>
+            </div>
           </div>
-        </div>
-      `).join('');
-    } else {
-      consultationsList.innerHTML = '<div class="consultation-item"><div class="consultation-time">---</div><div class="consultation-details"><h4>Aucune consultation</h4><p>---</p></div></div>';
+        `).join('');
+      } else {
+        consultationsList.innerHTML = '<div class="consultation-item"><div class="consultation-time">---</div><div class="consultation-details"><h4>Aucune consultation</h4><p>---</p></div></div>';
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+    }
+  }
+
+  // NOUVELLE FONCTION DÉTAILS PATIENT - HISTORIQUE MÉDICAL COMPLET
+  async function viewPatientDetails(patientId) {
+    closeModal('patientsModal');
+    
+    try {
+      const response = await fetch(`${API_URL}/patients/${patientId}/details`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const patient = data.patient;
+        const consultations = data.consultations;
+        const prescriptions = data.prescriptions;
+        
+        let consultationsHtml = '';
+        if (consultations && consultations.length > 0) {
+          consultationsHtml = consultations.map(c => `
+            <div style="padding: 12px; border-bottom: 1px solid #edf2f7;">
+              <strong>${new Date(c.date).toLocaleDateString('fr-FR')} ${new Date(c.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong> - Dr. ${c.doctor_name}<br>
+              <span style="color: #2b7a62;">${c.reason || 'Consultation'}</span>
+              ${c.diagnosis ? `<p style="font-size: 13px; color: #5f7d9c; margin-top: 5px;">📋 Diagnostic: ${c.diagnosis}</p>` : ''}
+              ${c.prescription ? `<p style="font-size: 13px; color: #2b7a62;">💊 Prescription: ${c.prescription}</p>` : ''}
+              ${c.notes ? `<p style="font-size: 13px; color: #6c7e97;">📝 Notes: ${c.notes}</p>` : ''}
+            </div>
+          `).join('');
+        } else {
+          consultationsHtml = '<div style="padding: 20px; text-align: center; color: #5f7d9c;">Aucune consultation</div>';
+        }
+        
+        let prescriptionsHtml = '';
+        if (prescriptions && prescriptions.length > 0) {
+          prescriptionsHtml = prescriptions.map(p => `
+            <div style="padding: 12px; border-bottom: 1px solid #edf2f7;">
+              <strong>${new Date(p.date).toLocaleDateString('fr-FR')}</strong> - Dr. ${p.doctor_name}<br>
+              <span style="color: #2b7a62;">${p.medications || 'Ordonnance'}</span>
+              ${p.dosage ? `<p style="font-size: 13px;">💊 Posologie: ${p.dosage}</p>` : ''}
+              ${p.notes ? `<p style="font-size: 13px; color: #6c7e97;">📝 ${p.notes}</p>` : ''}
+            </div>
+          `).join('');
+        } else {
+          prescriptionsHtml = '<div style="padding: 20px; text-align: center; color: #5f7d9c;">Aucune prescription</div>';
+        }
+        
+        const modalHtml = `
+          <div style="background: white; border-radius: 32px; max-width: 700px; width: 90%; max-height: 85vh; overflow-y: auto;">
+            <div style="padding: 24px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="font-size: 24px;">👤 ${patient.full_name}</h2>
+                <button onclick="closePatientModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #94a3b8;">&times;</button>
+              </div>
+              
+              <div style="background: linear-gradient(135deg, #f8f9ff, #f0f2fe); border-radius: 20px; padding: 16px; margin-bottom: 24px;">
+                <p><strong>📧 Email:</strong> ${patient.email}</p>
+                <p><strong>📞 Téléphone:</strong> ${patient.phone || 'Non renseigné'}</p>
+                <p><strong>🎂 Date naissance:</strong> ${patient.birth_date ? new Date(patient.birth_date).toLocaleDateString('fr-FR') : 'Non renseignée'}</p>
+                <p><strong>🩸 Groupe sanguin:</strong> ${patient.blood_type || 'Non renseigné'}</p>
+                ${patient.allergies ? `<p><strong>⚠️ Allergies:</strong> ${patient.allergies}</p>` : ''}
+              </div>
+              
+              <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;"><i class="fas fa-stethoscope"></i> Consultations</h3>
+              <div style="background: white; border: 1px solid #edf2f9; border-radius: 20px; margin-bottom: 24px; overflow: hidden;">
+                ${consultationsHtml}
+              </div>
+              
+              <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;"><i class="fas fa-prescription-bottle"></i> Prescriptions</h3>
+              <div style="background: white; border: 1px solid #edf2f9; border-radius: 20px; margin-bottom: 24px; overflow: hidden;">
+                ${prescriptionsHtml}
+              </div>
+              
+              <div style="display: flex; gap: 12px;">
+                <button onclick="alert('📝 Formulaire d\'ajout de consultation à venir')" style="flex: 1; background: #2b7a62; color: white; border: none; padding: 12px; border-radius: 40px; cursor: pointer; font-weight: 600;">+ Ajouter consultation</button>
+                <button onclick="alert('💊 Formulaire d\'ajout de prescription à venir')" style="flex: 1; background: transparent; border: 2px solid #2b7a62; color: #2b7a62; padding: 12px; border-radius: 40px; cursor: pointer; font-weight: 600;">+ Prescription</button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        const tempModal = document.createElement('div');
+        tempModal.id = 'patientDetailsModal';
+        tempModal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000;';
+        tempModal.innerHTML = modalHtml;
+        document.body.appendChild(tempModal);
+        
+        window.closePatientModal = () => tempModal.remove();
+      } else {
+        alert('Erreur: ' + (data.error || 'Patient non trouvé'));
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert('Erreur de chargement des détails patient');
     }
   }
 
@@ -349,15 +439,15 @@
     const modal = document.getElementById('patientsModal');
     const listDiv = document.getElementById('patientsList');
     
-    if (patientsData.length === 0) {
-      listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Aucun patient trouvé</div>';
-    } else {
-      listDiv.innerHTML = patientsData.map(patient => `
+    if (window.patientsData && window.patientsData.length > 0) {
+      listDiv.innerHTML = window.patientsData.map(patient => `
         <div class="patient-item" onclick="viewPatientDetails(${patient.id})">
           <div class="patient-name">${patient.full_name || 'Patient'}</div>
           <div class="patient-email">${patient.email || ''} • ${patient.phone || 'Tél non renseigné'}</div>
         </div>
       `).join('');
+    } else {
+      listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Aucun patient trouvé</div>';
     }
     modal.style.display = 'flex';
   }
@@ -365,23 +455,26 @@
   function showAppointmentsModal() {
     const modal = document.getElementById('appointmentsModal');
     const listDiv = document.getElementById('appointmentsList');
-    
-    if (appointmentsData.length === 0) {
-      listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Aucun rendez-vous programmé</div>';
-    } else {
-      listDiv.innerHTML = appointmentsData.map(apt => `
-        <div class="appointment-item">
-          <div class="patient-name">${apt.patient_name || 'Patient'}</div>
-          <div class="patient-email">📅 ${new Date(apt.date).toLocaleString('fr-FR')} • ${apt.reason || 'Consultation'}</div>
-        </div>
-      `).join('');
-    }
+    listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Chargement...</div>';
     modal.style.display = 'flex';
-  }
-
-  function viewPatientDetails(patientId) {
-    closeModal('patientsModal');
-    alert(`🔍 Consultation du patient ID: ${patientId}\n\nFonctionnalité d'historique médical en développement.`);
+    
+    fetch(`${API_URL}/appointments`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          listDiv.innerHTML = data.map(apt => `
+            <div class="appointment-item">
+              <div class="patient-name">${apt.patient_name || 'Patient'}</div>
+              <div class="patient-email">📅 ${new Date(apt.date).toLocaleString('fr-FR')} • ${apt.reason || 'Consultation'}</div>
+            </div>
+          `).join('');
+        } else {
+          listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Aucun rendez-vous programmé</div>';
+        }
+      })
+      .catch(() => {
+        listDiv.innerHTML = '<div style="text-align:center; padding:40px;">Erreur de chargement</div>';
+      });
   }
 
   function closeModal(modalId) {
@@ -409,14 +502,16 @@
       
       if (data.success) {
         currentUser = data.user;
-        successDiv.textContent = '✅ Connexion réussie ! Chargement des données...';
+        successDiv.textContent = '✅ Connexion réussie !';
         successDiv.style.display = 'block';
         
         document.getElementById('welcomeName').textContent = `Bonjour, ${data.user.fullName}`;
         document.getElementById('doctorName').textContent = data.user.fullName;
         document.getElementById('doctorRole').innerHTML = `Gynécologie médicale · ${data.user.role === 'admin' ? 'Administrateur' : 'Médecin'}`;
         
-        await Promise.all([loadPatients(), loadAppointments(), loadConsultations()]);
+        await loadPatients();
+        await loadAppointments();
+        await loadConsultations();
         
         setTimeout(() => {
           document.getElementById('loginPage').style.display = 'none';
@@ -427,41 +522,11 @@
         errorDiv.style.display = 'block';
       }
     } catch (error) {
-      errorDiv.textContent = '❌ Erreur de connexion au serveur. Vérifiez votre connexion.';
+      errorDiv.textContent = '❌ Erreur de connexion au serveur';
       errorDiv.style.display = 'block';
     } finally {
       loginBtn.disabled = false;
       loginBtn.innerHTML = 'Se connecter <i class="fas fa-arrow-right"></i>';
-    }
-  }
-
-  async function register(email, password, fullName) {
-    const errorDiv = document.getElementById('loginError');
-    const successDiv = document.getElementById('loginSuccess');
-    errorDiv.style.display = 'none';
-    successDiv.style.display = 'none';
-    
-    try {
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName, role: 'doctor' })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        successDiv.textContent = '✅ Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
-        successDiv.style.display = 'block';
-        document.getElementById('loginEmail').value = email;
-        document.getElementById('loginPassword').value = password;
-      } else {
-        errorDiv.textContent = '❌ ' + data.message;
-        errorDiv.style.display = 'block';
-      }
-    } catch (error) {
-      errorDiv.textContent = '❌ Erreur lors de l\'inscription';
-      errorDiv.style.display = 'block';
     }
   }
 
@@ -479,14 +544,26 @@
 
   document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
     e.preventDefault();
-    alert('🔑 Mot de passe oublié ?\n\nContactez l\'administrateur ou utilisez:\nhttps://gynocare-backend.onrender.com/api/reset-existing-admin');
+    alert('🔑 Mot de passe oublié ?\n\nContactez l\'administrateur');
   });
 
   document.getElementById('registerBtn').addEventListener('click', () => {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
-    const fullName = prompt('📝 Veuillez entrer votre nom complet:', 'Dr. Nouveau Médecin');
-    if (fullName) register(email, password, fullName);
+    const fullName = prompt('📝 Entrez votre nom complet:', 'Dr. Nouveau Médecin');
+    if (fullName) {
+      fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName, role: 'doctor' })
+      }).then(res => res.json()).then(data => {
+        if (data.success) {
+          alert('✅ Compte créé ! Vous pouvez vous connecter.');
+        } else {
+          alert('❌ ' + data.message);
+        }
+      });
+    }
   });
 
   document.getElementById('cardPatients').addEventListener('click', () => showPatientsModal());
@@ -503,6 +580,7 @@
   window.onclick = (event) => {
     if (event.target.classList.contains('modal')) event.target.style.display = 'none';
   };
+</script>
 </script>
 </body>
 </html>
