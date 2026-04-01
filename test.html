@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Test GynoCare</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        input { padding: 8px; margin: 5px; width: 250px; }
+        button { padding: 10px 20px; background: #2b7a62; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Test Connexion GynoCare</h1>
+    <div>
+        <input type="email" id="email" value="admin@gynocare.fr" placeholder="Email"><br>
+        <input type="password" id="password" value="Admin123456!" placeholder="Mot de passe"><br>
+        <button onclick="login()">Se connecter</button>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        const API_URL = 'https://gynocare-backend.onrender.com/api/v1';
+        
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = '<p>Connexion en cours...</p>';
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Connexion réussie !</p>
+                        <pre>${JSON.stringify(data.user, null, 2)}</pre>
+                        <p>👤 Nom: ${data.user.fullName}</p>
+                        <p>📧 Email: ${data.user.email}</p>
+                        <p>🎭 Rôle: ${data.user.role}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ ${data.message}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Erreur: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
